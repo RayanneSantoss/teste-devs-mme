@@ -73,7 +73,13 @@ Use a biblioteca que quiser para a tela, ou só o que já tem no projeto.
 Escreva uma consulta SQL que liste os **clientes com parcela vencida e não paga**, com a quantidade
 de parcelas em atraso e o valor total em atraso, do maior para o menor. Cole no `RESPOSTAS.md`.
 
+## Durante a prova
+- **Grave a sua tela** do início ao fim (no Mac: Shift + Cmd + 5; no Windows: Win + G, ou OBS). Queremos ver como você trabalha, inclusive como usa a IA. Não precisa editar nada.
+- Dúvidas: pergunte ao entrevistador pelo chat privado ou WhatsApp, a qualquer momento.
+- Trabalhe na sua branch e **só envie quando o entrevistador avisar que o tempo acabou**.
+
 ## Entrega
 - Crie uma branch com o seu nome (`git checkout -b seu-nome`) e faça commits do que fizer.
 - Preencha o `RESPOSTAS.md`.
-- No fim, envie a branch (ou um zip da pasta sem `node_modules`).
+- Quando o tempo acabar: envie a branch (`git push -u origin seu-nome`) ou um zip da pasta sem `node_modules`,
+  e mande o link do vídeo da gravação (Google Drive, WeTransfer ou parecido).
