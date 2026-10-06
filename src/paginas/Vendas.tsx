@@ -50,24 +50,48 @@ export function Vendas() {
 
   // vendas do período
   useEffect(() => {
+     // Qual era o problema?
+    // A lista parava em 1.000 vendas porque a consulta original fazia
+   // apenas uma chamada ao Supabase, que retornava no máximo 1.000 registros.
+  // As vendas além desse limite não eram carregadas.
+ // A solução foi buscar os resultados em páginas menores, até carregar todas as vendas.
+ 
     let cancelado = false;
     async function carregar() {
       setCarregando(true);
       setErro(null);
+      const tamanhoPagina = 500;
+      const todas:Venda[] = [];
+      const inicio = inicioDoPeriodo(periodo);
+
+      for(let de = 0; ; de += tamanhoPagina) {
       let consulta = supabase
         .from('vendas')
         .select(
           'id, data_venda, valor, status, motivo_cancelamento, closer_id, cliente:clientes(nome), produto:produtos(nome, empreendimento), closer:vendedores!vendas_closer_id_fkey(nome)',
         )
         .order('data_venda', { ascending: false })
-        .order('id', { ascending: false });
-      const inicio = inicioDoPeriodo(periodo);
-      if (inicio) consulta = consulta.gte('data_venda', inicio);
-      const { data, error } = await consulta;
-      if (cancelado) return;
-      if (error) setErro(error.message);
-      else setVendas((data ?? []) as unknown as Venda[]);
-      setCarregando(false);
+        .order('id', { ascending: false })
+        .range(de, de + tamanhoPagina - 1);
+
+        if(inicio) consulta = consulta.gte('data_venda', inicio);
+        const { data, error } = await consulta;
+        if (cancelado) return;
+        if (error){
+         setErro(error.message);
+         setCarregando(false);
+         return;
+        } 
+        
+      const pagina = (data ?? []) as unknown as Venda[];
+      todas.push(...pagina);
+
+      if(pagina.length < tamanhoPagina) break;
+      }
+    if (cancelado) return;
+
+    setVendas(todas);
+    setCarregando(false);
     }
     carregar();
     return () => {
@@ -76,13 +100,19 @@ export function Vendas() {
   }, [periodo]);
 
   const filtradas = useMemo(
-    () => (vendedorId ? vendas.filter((v) => v.closer?.nome === vendedorId) : vendas),
+    // Qual era o problema?
+   // A condição comparava o nome do closer com o ID do vendedor,
+  // fazendo com que a comparação nunca fosse verdadeira.
+    () => (vendedorId ? vendas.filter((v) => v.closer_id === Number(vendedorId)) : vendas),
     [vendas, vendedorId],
   );
 
   const resumo = useMemo(
     () => ({
-      ativas: filtradas.length,
+      // Qual era o problema?
+     // Estava sendo usado filtradas.length para calcular as vendas ativas,
+    // o que contava tanto as vendas ativas quanto as canceladas.
+      ativas: filtradas.filter((v) => v.status === 'ativa').length,
       canceladas: filtradas.filter((v) => v.status === 'cancelada').length,
       vgv: filtradas.filter((v) => v.status === 'ativa').reduce((soma, v) => soma + Number(v.valor), 0),
     }),

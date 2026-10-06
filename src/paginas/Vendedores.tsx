@@ -17,31 +17,48 @@ export function Vendedores() {
     async function carregar() {
       const inicio = performance.now();
       const { data: vendedores } = await supabase.from('vendedores').select('id, nome, funcao').eq('ativo', true).order('funcao').order('nome');
-      const resultado: Linha[] = [];
-      for (const v of vendedores ?? []) {
-        const campo = v.funcao === 'promotor' ? 'promotor_id' : v.funcao === 'liner' ? 'liner_id' : 'closer_id';
-        const { count } = await supabase.from('atendimentos').select('id', { count: 'exact', head: true }).eq(campo, v.id);
-        let vendas: VendaResumo[] = [];
-        if (v.funcao === 'promotor') {
-          const { data } = await supabase
-            .from('vendas')
-            .select('valor, status, atendimento:atendimentos!inner(promotor_id)')
-            .eq('atendimento.promotor_id', v.id);
-          vendas = (data ?? []) as unknown as VendaResumo[];
-        } else {
-          const { data } = await supabase.from('vendas').select('valor, status').eq(campo, v.id);
-          vendas = (data ?? []) as VendaResumo[];
-        }
-        resultado.push({
+      const resultado: Linha[] = await Promise.all(
+      (vendedores ?? []).map(async (v): Promise<Linha> => {
+        const campo = v.funcao === 'promotor'
+          ? 'promotor_id'
+          : v.funcao === 'liner'
+            ? 'liner_id'
+            : 'closer_id';
+
+        // As duas consultas deste vendedor rodam em paralelo.
+        const [atendimentosResult, vendasResult] = await Promise.all([
+          supabase
+            .from('atendimentos')
+            .select('id', { count: 'exact', head: true })
+            .eq(campo, v.id),
+          v.funcao === 'promotor'
+            ? supabase
+                .from('vendas')
+                .select('valor, status, atendimento:atendimentos!inner(promotor_id)')
+                .eq('atendimento.promotor_id', v.id)
+            : supabase
+                .from('vendas')
+                .select('valor, status')
+                .eq(campo, v.id),
+        ]);
+
+        if (atendimentosResult.error) throw atendimentosResult.error;
+        if (vendasResult.error) throw vendasResult.error;
+
+        const vendas = (vendasResult.data ?? []) as unknown as VendaResumo[];
+        return {
           id: v.id,
           nome: v.nome,
           funcao: v.funcao,
-          atendimentos: count ?? 0,
+          atendimentos: atendimentosResult.count ?? 0,
           vendas: vendas.length,
-          canceladas: vendas.filter((x) => x.status === 'cancelada').length,
-          vgv: vendas.filter((x) => x.status === 'ativa').reduce((soma, x) => soma + Number(x.valor), 0),
-        });
-      }
+          canceladas: vendas.filter((venda) => venda.status === 'cancelada').length,
+          vgv: vendas
+            .filter((venda) => venda.status === 'ativa')
+            .reduce((soma, venda) => soma + Number(venda.valor), 0),
+        };
+      }),
+    );
       if (cancelado) return;
       setLinhas(resultado);
       setTempo(Math.round(performance.now() - inicio));

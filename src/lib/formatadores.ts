@@ -1,7 +1,16 @@
 /** Mostra uma data do banco (AAAA-MM-DD) no formato brasileiro (DD/MM/AAAA). */
 export function formatarData(data: string | null | undefined): string {
   if (!data) return '—';
-  return new Date(data).toLocaleDateString('pt-BR');
+
+// Qual era o problema?
+// O banco retorna a data no formato padrão AAAA-MM-DD.
+// Ao usar new Date(data) no frontend, a data sofria conversão
+// de fuso horário e podia aparecer um dia antes.
+// A solução foi formatar a string diretamente para DD/MM/AAAA,
+// sem fazer a conversão para Date.
+
+  const [ano, mes, dia] = data.split('-');
+  return `${dia}/${mes}/${ano}`;
 }
 
 /** Mostra um valor em reais. */
