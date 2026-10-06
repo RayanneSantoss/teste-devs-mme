@@ -30,7 +30,7 @@ select n[1 + floor(random() * array_length(n, 1))::int] || ' ' || s[1 + floor(ra
        c[x.i][1], c[x.i][2],
        '(' || (array['82','81','79','71','11','61','31','41','62','85'])[1 + floor(random() * 10)::int] || ') 9'
          || lpad(floor(random() * 10000)::text, 4, '0') || '-' || lpad(floor(random() * 10000)::text, 4, '0')
-from nomes, cidades, generate_series(1, 2200) g, lateral (select 1 + floor(random() * 15)::int i) x;
+from nomes, cidades, (select g, 1 + floor(random() * 15)::int i from generate_series(1, 2200) g) x;
 
 -- 2.600 atendimentos entre 01/08/2025 e 06/10/2026
 insert into atendimentos (cliente_id, data, promotor_id, liner_id, closer_id, status, hotel)
@@ -39,18 +39,17 @@ select 1 + floor(random() * 2200)::int,
        1 + floor(random() * 5)::int, 6 + floor(random() * 5)::int, 11 + floor(random() * 5)::int,
        case when x.r < 0.55 then 'finalizado' when x.r < 0.75 then 'sn' when x.r < 0.90 then 'nq' else 'cancelado' end,
        (array['Jatiúca Resort','Ritz Lagoa da Anta','Salinas Maragogi','Pousada Ipioca','Hotel Ponta Verde','Carmel Magna Praia'])[1 + floor(random() * 6)::int]
-from generate_series(1, 2600) g, lateral (select random() r) x;
+from (select g, random() r from generate_series(1, 2600) g) x;
 
 -- vendas em cerca de 68% dos atendimentos válidos; 12% canceladas
 insert into vendas (atendimento_id, cliente_id, produto_id, closer_id, liner_id, data_venda, valor, status, motivo_cancelamento)
 select a.id, a.cliente_id, p.id, a.closer_id, a.liner_id, a.data,
-       round(p.valor_tabela * (0.85 + random() * 0.30), 2),
-       case when x.r2 < 0.12 then 'cancelada' else 'ativa' end,
-       case when x.r2 < 0.12 then (array['Desistência','Problema financeiro','Arrependimento no prazo legal','Não entendeu o produto','Outro'])[1 + floor(random() * 5)::int] end
-from atendimentos a
-cross join lateral (select random() r1, random() r2, 1 + floor(random() * 8)::int pid) x
-join produtos p on p.id = x.pid
-where a.status in ('finalizado', 'sn') and x.r1 < 0.68;
+       round((p.valor_tabela * (0.85 + random() * 0.30))::numeric, 2),
+       case when a.r2 < 0.12 then 'cancelada' else 'ativa' end,
+       case when a.r2 < 0.12 then (array['Desistência','Problema financeiro','Arrependimento no prazo legal','Não entendeu o produto','Outro'])[1 + floor(random() * 5)::int] end
+from (select a.*, random() r1, random() r2, 1 + floor(random() * 8)::int pid from atendimentos a) a
+join produtos p on p.id = a.pid
+where a.status in ('finalizado', 'sn') and a.r1 < 0.68;
 
 -- metas mensais de closers e liners ativos
 insert into metas (vendedor_id, ano, mes, meta_vendas)
